@@ -71,6 +71,7 @@ def load_pretrained_model(args, stage2=None, stage3=None):
     if os.path.exists(model_base):
         model_kwargs['local_files_only'] = True
     
+    model_kwargs["device_map"] = {"": 0}
     model = MulsumLlamaForCausalLM.from_pretrained(model_base, **model_kwargs)
     token_num, tokem_dim = model.lm_head.out_features, model.lm_head.in_features
     if model.lm_head.weight.shape[0] != token_num:

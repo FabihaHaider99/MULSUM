@@ -1,0 +1,194 @@
+{
+  "prompts": {
+    "config_path": "configs/prompts_config.json",
+    "_comment_prompts": "Centralized prompt management for consistent and optimized multimodal summarization"
+  },
+  "model": {
+    "model_name_or_path": "lmsys/vicuna-7b-v1.5",
+    "pretrain_mm_mlp_adapter": "checkpoints/llava-vicuna-v1-5-7b-stage1/mm_projector.bin",
+    "checkpoint_path": "checkpoints/imagetext-summarizer",
+    "version": "v1",
+    "trainable_mm_projector": true
+  },
+  "data": {
+    "data_path": "data/train_dataset.csv",
+    "validation_path": "data/validation_dataset.csv",
+    "test_path": "data/test_dataset.csv",
+    "lmdb_path": "data/LMDB/CLIP_train_features.lmdb",
+    "validation_lmdb_path": "data/LMDB/CLIP_validation_features.lmdb",
+    "test_lmdb_path": "data/LMDB/CLIP_test_features.lmdb",
+    "max_images": 5,
+    "image_feature_dim": 768,
+    "max_input_len": 1024,
+    "max_summary_len": 256,
+    "train_subset_size": 0,
+    "validation_subset_size": 0,
+    "test_subset_size": 0
+  },
+  "training": {
+    "output_dir": "checkpoints/imagetext-summarizer",
+    "num_train_epochs": 8,
+    "per_device_train_batch_size": 16,
+    "per_device_eval_batch_size": 32,
+    "gradient_accumulation_steps": 2,
+    "learning_rate": 2e-5,
+    "fp16": true,
+    "bf16": false,
+    "weight_decay": 0.0,
+    "lora_enable": true,
+    "lora_r": 128,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "bits": 16,
+    "dataloader_num_workers": 4,
+    "dataloader_prefetch_factor": 2,
+    "dataloader_pin_memory": true,
+    "dataloader_persistent_workers": true,
+    "eval_strategy": "steps",
+    "eval_steps": 500,
+    "save_strategy": "steps",
+    "save_steps": 500,
+    "save_total_limit": 2,
+    "metric_for_best_model": "eval_loss",
+    "greater_is_better": false,
+    "load_best_model_at_end": true,
+    "early_stopping_patience": 3
+  },
+  "inference": {
+    "csv_output_path": "results/inference_results.csv",
+    "max_samples": 0,
+    "save_every_n_samples": 1000,
+    "temperature": 0.2,
+    "do_sample": false,
+    "num_beams": 1,
+    "top_p": 0.8,
+    "top_k": 40,
+    "repetition_penalty": 1.0,
+    "max_new_tokens": 256
+  },
+  "wandb": {
+    "enabled": false,
+    "project": "MULSUM-Training",
+    "name": null,
+    "tags": ["multimodal-summarization", "llava", "vicuna"],
+    "notes": "MULSUM training with image-text summarization",
+    "log_model": "end",
+    "watch_model": true,
+    "log_gradients": false,
+    "log_parameters": false,
+    "save_code": true
+  },
+  "ablation": {
+    "random_seed": 42,
+    "num_random_images": null,
+    "ablation_type": "random_irrelevant_images",
+    "_comment_ablation_types": "Available types: 'random_irrelevant_images', 'no_real_images', 'without_images'",
+    "random_feature_std": 0.1,
+    "_comment_random_feature_std": "Standard deviation for random gaussian features in 'no_real_images' mode"
+  },
+  "mm_projector_extraction": {
+    "_comment": "Configuration for extracting mm_projector weights in PyTorch 2.6+ compatible format",
+    "checkpoint_path": null,
+    "_comment_checkpoint_path": "Path to full model checkpoint. If null, auto-derives from model.checkpoint_path or model.pretrain_mm_mlp_adapter",
+    "output_path": "checkpoints/mm_projector_clean.bin",
+    "auto_find_latest": false,
+    "_comment_auto_find_latest": "If true, automatically finds the latest checkpoint in checkpoints_directory",
+    "checkpoints_directory": "checkpoints",
+    "allowed_extensions": [".bin", ".pth"],
+    "verify_loading": true,
+    "_comment_verify_loading": "Verify that the saved file can be loaded with weights_only=True"
+  },
+  "image_selection": {
+    "_comment": "Configuration for image selection using fine-tuned LLaVA embeddings",
+    "mm_projector_path": "checkpoints/mm_projector_clean.bin",
+    "_comment_mm_projector_path": "Path to fine-tuned mm_projector weights for image selection. If null, uses model.pretrain_mm_mlp_adapter",
+    "device": "auto",
+    "strategy": "MMR",
+    "_comment_strategy": "Image selection strategy: 'S1' for whole summary embedding, 'S2' for SRL-based proposition embedding, 'MMR' for maximal marginal relevance",
+    "selection_method": "top_k",
+    "_comment_selection_method": "Method for image selection (only used for S1 strategy): 'top_k', 'threshold', or 'top_k_above_threshold'. MMR and S2 strategies ignore this parameter.",
+    "top_k": 3,
+    "_comment_top_k": "Number of top images to select (used by all strategies)",
+    "similarity_threshold": 0.005,
+    "_comment_similarity_threshold": "Minimum similarity threshold (only used for S1 'threshold' and 'top_k_above_threshold' methods, ignored by MMR and S2)",
+    "srl_config": {
+      "_comment": "Configuration for S2 strategy using Semantic Role Labeling",
+      "model_name": "transformer-srl",
+      "_comment_model_name": "SRL model to use: 'transformer-srl' or 'spacy' for simple noun chunks",
+      "top_m_per_proposition": 3,
+      "_comment_top_m_per_proposition": "Number of top images to retain per proposition in S2 strategy",
+      "use_noun_chunks": false,
+      "_comment_use_noun_chunks": "If true, use simple noun chunk extraction instead of full SRL",
+      "sort_by_max_similarity": true,
+      "_comment_sort_by_max_similarity": "If true, sort final candidate set by max similarity across any proposition"
+    },
+    "mmr_config": {
+      "_comment": "Configuration for MMR (Maximal Marginal Relevance) strategy",
+      "lambda": 0.7,
+      "_comment_lambda": "Trade-off parameter between relevance and diversity (0.0-1.0). Higher values favor relevance over diversity",
+      "similarity_function": "cosine",
+      "_comment_similarity_function": "Similarity function to use: 'cosine' or 'dot_product'"
+    },
+    "top_k_values": [1, 3, 5, 10],
+    "_comment_top_k_values": "List of K values to evaluate for precision/recall metrics",
+    "max_samples": null,
+    "max_candidate_images": null,
+    "use_all_images_as_candidates": false,
+    "simple_output_csv": "results/simple_image_selection_results.csv",
+    "_comment_simple_output_csv": "Output CSV file for simple image selection script",
+    "verbose": false,
+    "_comment_verbose": "If true, shows detailed progress for every article. If false, only shows progress for first/last few and every 50th article",
+    "random_seed": 42,
+    "single_evaluation": {
+      "summary_text": "This article discusses renewable energy technologies and their environmental impact. Solar panels and wind turbines are highlighted as key solutions for reducing carbon emissions.",
+      "candidate_images": [],
+      "gold_images": [],
+      "output_path": "results/single_selection_results.json"
+    },
+    "batch_evaluation": {
+      "inference_results_path": "results/inference_results.csv",
+      "annotations_path": "data/Test_Images_Annotation.csv", 
+      "original_dataset_path": "data/test_dataset.csv",
+      "output_path": "results/batch_evaluation_results.json",
+      "use_inference_images": false,
+      "_comment_use_inference_images": "If true, use image_paths from inference results (K images used during inference). If false, use all Image_Paths from original dataset",
+      "columns": {
+        "inference_results": {
+          "id_column": "id",
+          "summary_column": "generated_summary",
+          "image_paths_column": "image_paths"
+        },
+        "annotations": {
+          "id_column": "Article_ID", 
+          "gold_images_column": "relevant_images"
+        },
+        "original_dataset": {
+          "id_column": "Article_ID",
+          "image_paths_column": "Image_Paths"
+        }
+      }
+    },
+    "mmae_config": {
+      "_comment": "Configuration for MMAE (Multimodal Article Evaluation) metric calculation",
+      "use_sentence_level_maxsim": true,
+      "_comment_use_sentence_level_maxsim": "If true, calculates max-sim at sentence level (each sentence vs all images). If false, uses full summary vs all images (original approach).",
+      "rouge_metric": "rouge_1",
+      "_comment_rouge_metric": "ROUGE metric to use for text salience calculation: 'rouge_l' (default, uses longest common subsequence) or 'rouge_1' (uses unigram overlap)",
+      "clip_model_name": "openai/clip-vit-large-patch14-336",
+      "_comment_clip_model_name": "CLIP model to use for image-text relevance calculation. Should match the model used to extract image features.",
+      "verbose_sentence_processing": false,
+      "_comment_verbose_sentence_processing": "If true, shows detailed sentence-by-sentence similarity scores during max-sim calculation"
+    },
+    "MMAE_Calculation_Configuration": {
+      "_comment": "Configuration for calculating MMAE scores from existing results CSV files",
+      "results_csv_path": "results/MMR_R1_Results.csv",
+      "_comment_results_csv": "Path to CSV file containing image_precision, max_sim, article_id, and summary columns",
+      "inference_csv_path": "results/inference_results.csv",
+      "_comment_inference_csv": "Path to CSV file containing reference summaries (with article_id and reference_summary columns)",
+      "output_csv_path": "results/mmae_final_scores.csv",
+      "_comment_output_csv": "Path where the final results with MMAE scores will be saved",
+      "log_file_path": "results/mmae_calculation.log",
+      "_comment_log_file": "Path for the calculation log file"
+    }
+  }
+}
